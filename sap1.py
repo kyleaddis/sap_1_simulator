@@ -1,4 +1,5 @@
 from collections import deque
+from assembler import assemble
 
 
 class ProgramCounter:
@@ -28,16 +29,6 @@ class Register:
     def clr(self):
         self.data = [0 for i in range(self.size)]
 
-# class Memory_Address_Register:
-#     def __init__(self) -> None:
-#         self.address = [0 for i in range(4)]
-
-#     def set(self, address):
-#         self.address = address
-
-#     def clr(self):
-#         self.address = [0 for i in range(4)]
-
 
 class Memory:
     def __init__(self) -> None:
@@ -45,6 +36,9 @@ class Memory:
 
     def set(self, register, data):
         self.state[bin_array_to_int(register)] = data
+
+    def program(self, data):
+        self.state = data
 
     def read(self, register: list[int]):
         return self.state[bin_array_to_int(register)]
@@ -122,14 +116,16 @@ if __name__ == '__main__':
     out = Register(8)
     run_flag = True
 
-    mem.set([0, 0, 0, 0], [0, 0, 0, 0, 1, 1, 1, 1])
-    mem.set([0, 0, 0, 1], [0, 0, 1, 0, 1, 0, 1, 1])
-    mem.set([0, 0, 1, 0], [1, 1, 1, 0, 0, 0, 0, 0])
-    mem.set([0, 0, 1, 1], [1, 1, 1, 1, 0, 0, 0, 0])
-    mem.set([1, 1, 1, 1], [0, 0, 0, 0, 0, 1, 1, 1])
-    mem.set([1, 0, 1, 1], [0, 0, 0, 0, 0, 0, 1, 1])
-    # print(binary_subtraction(
-    #     [0, 0, 0, 0, 0, 0, 1, 1], [0, 0, 0, 0, 0, 1, 1, 1]))
+    # mem.set([0, 0, 0, 0], [0, 0, 0, 0, 1, 1, 1, 1])
+    # mem.set([0, 0, 0, 1], [0, 0, 1, 0, 1, 0, 1, 1])
+    # mem.set([0, 0, 1, 0], [1, 1, 1, 0, 0, 0, 0, 0])
+    # mem.set([0, 0, 1, 1], [1, 1, 1, 1, 0, 0, 0, 0])
+    # mem.set([1, 1, 1, 1], [0, 0, 0, 0, 0, 1, 1, 1])
+    # mem.set([1, 0, 1, 1], [0, 0, 0, 0, 0, 0, 1, 1])
+
+    prog = assemble('prog.txt')
+    mem.program(prog)
+
     while(run_flag):
         for i in range(6):
             if cu.state[5] == 1:
@@ -154,7 +150,7 @@ if __name__ == '__main__':
                 if ir.get_opcode() == [1, 1, 1, 0]:
                     bus.set(acc.data)
                     out.set(bus.data)
-                    print(out.data)
+                    print(out.data, bin_array_to_int(out.data))
                 # check for HLT
                 if ir.get_opcode() == [1, 1, 1, 1]:
                     run_flag = False

@@ -1,0 +1,6 @@
+LDA FH
+SUB EH
+OUT
+HLT
+FH 3H
+EH 2H

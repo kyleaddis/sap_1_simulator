@@ -12,7 +12,7 @@ class ProgramCounter:
             self.count = 0
 
     def read(self):
-        return [int(d) for d in str(format(self.count, '#06b'))[2:]]
+        return int_to_bin(self.count, 4)
 
     def clr(self):
         self.count = 0
@@ -21,54 +21,54 @@ class ProgramCounter:
 class Register:
     def __init__(self, size) -> None:
         self.size = size
-        self.data = [0 for i in range(size)]
+        self.data = int_to_bin(0, 8)
 
     def set(self, data):
         self.data = data
 
     def clr(self):
-        self.data = [0 for i in range(self.size)]
+        self.data = int_to_bin(0, 8)
 
 
 class Memory:
     def __init__(self) -> None:
-        self.state = [[0 for a in range(8)] for a in range(16)]
+        self.state = [int_to_bin(0, 8) for a in range(16)]
 
     def set(self, register, data):
-        self.state[bin_array_to_int(register)] = data
+        self.state[int(register, 2)] = data
 
     def program(self, data):
         self.state = data
 
     def read(self, register: list[int]):
-        return self.state[bin_array_to_int(register)]
+        return self.state[int(register, 2)]
 
     def clr(self):
-        self.state = [[0 for a in range(8)] for a in range(16)]
+        self.state = [int_to_bin(0, 8) for a in range(16)]
 
 
 class Control_Unit:
     def __init__(self) -> None:
-        self.state = [0, 0, 0, 0, 0, 1]
+        self.state = int_to_bin(1, 6)
 
     def inc(self):
-        _tmp = deque(self.state)
-        _tmp.rotate(-1)
-        self.state = list(_tmp)
+        _tmp = deque(self.state)        # convert to deque object
+        _tmp.rotate(-1)                 # rotate the list
+        self.state = "".join(_tmp)      # join back to a string
 
     def clr(self):
-        self.state = [0, 0, 0, 0, 0, 1]
+        self.state = int_to_bin(1, 6)
 
 
 class Bus():
     def __init__(self) -> None:
-        self.data = [0, 0, 0, 0, 0, 0, 0, 0]
+        self.data = int_to_bin(0, 8)
 
     def set(self, data):
         self.data = data
 
     def clr(self):
-        self.data = [0, 0, 0, 0, 0, 0, 0, 0]
+        self.data = int_to_bin(0, 8)
 
 
 class Instruction_Register(Register):
@@ -79,29 +79,30 @@ class Instruction_Register(Register):
         return self.data[4:]
 
 
-def bin_array_to_int(array) -> int:
-    return int(''.join(map(str, array)), 2)
-
-
-def int_to_bin_list(b):
-    return [int(d) for d in str(format(b, '#010b'))[2:]]
+def int_to_bin(i, bits):
+    if bits == 8:
+        return str(format(i, '08b'))
+    if bits == 6:
+        return str(format(i, '06b'))
+    if bits == 4:
+        return str(format(i, '04b'))
 
 
 def binary_addition(a, b):
-    _a = bin_array_to_int(a)
-    _b = bin_array_to_int(b)
+    _a = int(a, 2)
+    _b = int(b, 2)
     _sum = _a + _b
-    return int_to_bin_list(_sum)
+    return int_to_bin(_sum, 8)
 
 
 def binary_subtraction(a, b):
-    _a = bin_array_to_int(a)
-    _b = bin_array_to_int(b)
+    _a = int(a, 2)
+    _b = int(b, 2)
     _sum = _a - _b
     if _sum < 1:
         _sum = bin(_sum & (2**8 - 1))
         _sum = int(_sum, 2)
-    return int_to_bin_list(_sum)
+    return int_to_bin(_sum, 8)
 
 
 if __name__ == '__main__':
@@ -116,65 +117,58 @@ if __name__ == '__main__':
     out = Register(8)
     run_flag = True
 
-    # mem.set([0, 0, 0, 0], [0, 0, 0, 0, 1, 1, 1, 1])
-    # mem.set([0, 0, 0, 1], [0, 0, 1, 0, 1, 0, 1, 1])
-    # mem.set([0, 0, 1, 0], [1, 1, 1, 0, 0, 0, 0, 0])
-    # mem.set([0, 0, 1, 1], [1, 1, 1, 1, 0, 0, 0, 0])
-    # mem.set([1, 1, 1, 1], [0, 0, 0, 0, 0, 1, 1, 1])
-    # mem.set([1, 0, 1, 1], [0, 0, 0, 0, 0, 0, 1, 1])
-
     prog = assemble('prog.txt')
     mem.program(prog)
 
     while(run_flag):
         for i in range(6):
-            if cu.state[5] == 1:
+            if cu.state[5] == '1':
                 bus.set(pc.read())
                 mar.set(bus.data)
-            if cu.state[4] == 1:
+            if cu.state[4] == '1':
                 pc.inc()
-            if cu.state[3] == 1:
+            if cu.state[3] == '1':
                 _add = mem.read(mar.data)
                 bus.set(_add)
                 ir.set(bus.data)
-            if cu.state[2] == 1:
+            if cu.state[2] == '1':
                 # check for LDA
-                if ir.get_opcode() == [0, 0, 0, 0]:
+                if ir.get_opcode() == '1111':
                     bus.set(ir.get_operand())
                     mar.set(bus.data)
                 # check for ADD or SUB
-                if ir.get_opcode() == [0, 0, 0, 1] or ir.get_opcode() == [0, 0, 1, 0]:
+                if ir.get_opcode() == '0001' or ir.get_opcode() == '0010':
                     bus.set(ir.get_operand())
                     mar.set(bus.data)
                 # check for OUT
-                if ir.get_opcode() == [1, 1, 1, 0]:
+                if ir.get_opcode() == '1110':
                     bus.set(acc.data)
                     out.set(bus.data)
-                    print(out.data, bin_array_to_int(out.data))
+                    print(out.data, int(out.data, 2))
                 # check for HLT
-                if ir.get_opcode() == [1, 1, 1, 1]:
+                if ir.get_opcode() == '1111':
                     run_flag = False
                     break
-            if cu.state[1] == 1:
-                # ADD
-                if ir.get_opcode() == [0, 0, 0, 0]:
+            if cu.state[1] == '1':
+                # LDA
+                if ir.get_opcode() == '0000':
                     _data = mem.read(bus.data)
                     bus.set(_data)
                     acc.set(bus.data)
-                # SUB
-                if ir.get_opcode() == [0, 0, 0, 1] or ir.get_opcode() == [0, 0, 1, 0]:
+                # ADD or SUB
+                if ir.get_opcode() == '0001' or ir.get_opcode() == '0010':
                     _data = mem.read(bus.data)
                     bus.set(_data)
                     b_reg.set(bus.data)
 
-            if cu.state[0] == 1:
+            if cu.state[0] == '1':
                 # ADD
-                if ir.get_opcode() == [0, 0, 0, 1]:
+                if ir.get_opcode() == '0001':
                     _sum = binary_addition(acc.data, b_reg.data)
                     bus.set(_sum)
                     acc.set(bus.data)
                 # SUB
-                if ir.get_opcode() == [0, 0, 1, 0]:
+                if ir.get_opcode() == '0010':
                     _sum = binary_subtraction(acc.data, b_reg.data)
                     bus.set(_sum)
                     acc.set(bus.data)

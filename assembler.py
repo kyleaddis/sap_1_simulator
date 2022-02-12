@@ -1,3 +1,6 @@
+from utils import hex_to_bin, hex_to_int, int_to_bin
+
+
 def assemble(path):
     progam = [int_to_bin(0, 8) for a in range(16)]
     with open(path) as f:
@@ -32,27 +35,6 @@ def opcode_lookup(mnemonic):
         return '1111'
     else:
         return hex_to_int(mnemonic)
-
-
-def hex_to_bin(hex, bits):
-    _b = list(hex)
-    _b = int(_b[0], 16)
-    return int_to_bin(_b, bits)
-
-
-def hex_to_int(hex):
-    _b = list(hex)
-    _b = int(_b[0], 16)
-    return _b
-
-
-def int_to_bin(i, bits):
-    if bits == 8:
-        return str(format(i, '08b'))
-    if bits == 6:
-        return str(format(i, '06b'))
-    if bits == 4:
-        return str(format(i, '04b'))
 
 
 def hexdump(prog):

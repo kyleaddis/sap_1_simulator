@@ -1,10 +1,14 @@
 from collections import deque
 from assembler import assemble
+from utils import int_to_bin, binary_addition, binary_subtraction
 
 
 class ProgramCounter:
     def __init__(self) -> None:
         self.count = 0
+
+    def __str__(self) -> str:
+        return int_to_bin(self.count, 4)
 
     def inc(self):
         self.count += 1
@@ -21,13 +25,16 @@ class ProgramCounter:
 class Register:
     def __init__(self, size) -> None:
         self.size = size
-        self.data = int_to_bin(0, 8)
+        self.data = int_to_bin(0, size)
+
+    def __str__(self) -> str:
+        return self.data
 
     def set(self, data):
         self.data = data
 
     def clr(self):
-        self.data = int_to_bin(0, 8)
+        self.data = int_to_bin(0, self.size)
 
 
 class Memory:
@@ -51,6 +58,9 @@ class Control_Unit:
     def __init__(self) -> None:
         self.state = int_to_bin(1, 6)
 
+    def __str__(self) -> str:
+        return self.state
+
     def inc(self):
         _tmp = deque(self.state)        # convert to deque object
         _tmp.rotate(-1)                 # rotate the list
@@ -64,8 +74,15 @@ class Bus():
     def __init__(self) -> None:
         self.data = int_to_bin(0, 8)
 
+    def __str__(self) -> str:
+        return self.data
+
     def set(self, data):
-        self.data = data
+        _len = len(data)
+        if _len < 8:
+            self.data = '0'*_len + data
+        else:
+            self.data = data
 
     def clr(self):
         self.data = int_to_bin(0, 8)
@@ -79,97 +96,99 @@ class Instruction_Register(Register):
         return self.data[4:]
 
 
-def int_to_bin(i, bits):
-    if bits == 8:
-        return str(format(i, '08b'))
-    if bits == 6:
-        return str(format(i, '06b'))
-    if bits == 4:
-        return str(format(i, '04b'))
+class SAP_1():
+    def __init__(self) -> None:
+        self.mem = Memory()
+        self.cu = Control_Unit()
+        self.mar = Register(4)
+        self.pc = ProgramCounter()
+        self.bus = Bus()
+        self.ir = Instruction_Register(8)
+        self.b_reg = Register(8)
+        self.acc = Register(8)
+        self.out = Register(8)
 
+    def program(self, data):
+        self.mem.program(data)
 
-def binary_addition(a, b):
-    _a = int(a, 2)
-    _b = int(b, 2)
-    _sum = _a + _b
-    return int_to_bin(_sum, 8)
+    def memory_dump(self, hexa=False):
+        for line in prog:
+            if hexa:
+                bin = int(line, 2)
+                print(hex(bin))
+            else:
+                print(line)
 
+    def _dump_state(self, cycle: int):
+        print("Cycle: {:02d} | PC: {} | MAR: {} | BUS: {} | IR: {} | A: {} | B: {} | O: {}".format(
+            cycle, self.pc, self.mar, self.bus, self.ir, self.acc, self.b_reg, self.out))
 
-def binary_subtraction(a, b):
-    _a = int(a, 2)
-    _b = int(b, 2)
-    _sum = _a - _b
-    if _sum < 1:
-        _sum = bin(_sum & (2**8 - 1))
-        _sum = int(_sum, 2)
-    return int_to_bin(_sum, 8)
+    def run(self, debug=False):
+        _run = True
+        cycle = 0
+        while(_run):
+            for i in range(6):
+                if self.cu.state[5] == '1':
+                    self.bus.set(self.pc.read())
+                    self.mar.set(self.bus.data)
+                if self.cu.state[4] == '1':
+                    self.pc.inc()
+                if self.cu.state[3] == '1':
+                    _add = self.mem.read(self.mar.data)
+                    self.bus.set(_add)
+                    self.ir.set(self.bus.data)
+                if self.cu.state[2] == '1':
+                    # check for LDA
+                    if self.ir.get_opcode() == '1111':
+                        self.bus.set(self.ir.get_operand())
+                        self.mar.set(self.bus.data)
+                    # check for ADD or SUB
+                    if self.ir.get_opcode() == '0001' or self.ir.get_opcode() == '0010':
+                        self.bus.set(self.ir.get_operand())
+                        self.mar.set(self.bus.data)
+                    # check for OUT
+                    if self.ir.get_opcode() == '1110':
+                        self.bus.set(self.acc.data)
+                        self.out.set(self.bus.data)
+                        print(self.out.data, int(self.out.data, 2))
+                    # check for HLT
+                    if self.ir.get_opcode() == '1111':
+                        _run = False
+                        break
+                if self.cu.state[1] == '1':
+                    # LDA
+                    if self.ir.get_opcode() == '0000':
+                        _data = self.mem.read(self.bus.data)
+                        self.bus.set(_data)
+                        self.acc.set(self.bus.data)
+                    # ADD or SUB
+                    if self.ir.get_opcode() == '0001' or self.ir.get_opcode() == '0010':
+                        _data = self.mem.read(self.bus.data)
+                        self.bus.set(_data)
+                        self.b_reg.set(self.bus.data)
+                if self.cu.state[0] == '1':
+                    # ADD
+                    if self.ir.get_opcode() == '0001':
+                        _sum = binary_addition(self.acc.data, self.b_reg.data)
+                        self.bus.set(_sum)
+                        self.acc.set(self.bus.data)
+                    # SUB
+                    if self.ir.get_opcode() == '0010':
+                        _sum = binary_subtraction(
+                            self.acc.data, self.b_reg.data)
+                        self.bus.set(_sum)
+                        self.acc.set(self.bus.data)
+
+                self.cu.inc()
+
+                if debug:
+                    self._dump_state(cycle)
+                cycle += 1
 
 
 if __name__ == '__main__':
-    mem = Memory()
-    cu = Control_Unit()
-    mar = Register(4)
-    pc = ProgramCounter()
-    bus = Bus()
-    ir = Instruction_Register(8)
-    b_reg = Register(8)
-    acc = Register(8)
-    out = Register(8)
-    run_flag = True
-
     prog = assemble('prog.txt')
-    mem.program(prog)
-
-    while(run_flag):
-        for i in range(6):
-            if cu.state[5] == '1':
-                bus.set(pc.read())
-                mar.set(bus.data)
-            if cu.state[4] == '1':
-                pc.inc()
-            if cu.state[3] == '1':
-                _add = mem.read(mar.data)
-                bus.set(_add)
-                ir.set(bus.data)
-            if cu.state[2] == '1':
-                # check for LDA
-                if ir.get_opcode() == '1111':
-                    bus.set(ir.get_operand())
-                    mar.set(bus.data)
-                # check for ADD or SUB
-                if ir.get_opcode() == '0001' or ir.get_opcode() == '0010':
-                    bus.set(ir.get_operand())
-                    mar.set(bus.data)
-                # check for OUT
-                if ir.get_opcode() == '1110':
-                    bus.set(acc.data)
-                    out.set(bus.data)
-                    print(out.data, int(out.data, 2))
-                # check for HLT
-                if ir.get_opcode() == '1111':
-                    run_flag = False
-                    break
-            if cu.state[1] == '1':
-                # LDA
-                if ir.get_opcode() == '0000':
-                    _data = mem.read(bus.data)
-                    bus.set(_data)
-                    acc.set(bus.data)
-                # ADD or SUB
-                if ir.get_opcode() == '0001' or ir.get_opcode() == '0010':
-                    _data = mem.read(bus.data)
-                    bus.set(_data)
-                    b_reg.set(bus.data)
-
-            if cu.state[0] == '1':
-                # ADD
-                if ir.get_opcode() == '0001':
-                    _sum = binary_addition(acc.data, b_reg.data)
-                    bus.set(_sum)
-                    acc.set(bus.data)
-                # SUB
-                if ir.get_opcode() == '0010':
-                    _sum = binary_subtraction(acc.data, b_reg.data)
-                    bus.set(_sum)
-                    acc.set(bus.data)
-            cu.inc()
+    sap = SAP_1()
+    sap.program(prog)
+    sap.memory_dump(True)
+    sap.run(False)
